@@ -24,8 +24,8 @@ export async function POST(req: Request) {
             body: JSON.stringify({
                 files: [{
                     file_name: file.name,
-                    file_size: file.size,
-                    content_type: file.type
+                    file_size: Math.round(file.size), // Ensure integer
+                    content_type: file.type === 'image/jpeg' ? 'image/jpg' : (file.type || 'image/jpg')
                 }]
             })
         });
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
         if (!getUrlRes.ok) {
             const errData = await getUrlRes.text();
             console.error("YouCam API Failed:", errData);
-            return NextResponse.json({ error: "Failed to get upload URL from YouCam" }, { status: 500 });
+            return NextResponse.json({ error: `YouCam API Error: ${errData}` }, { status: 500 });
         }
 
         const getUrlData = await getUrlRes.json();
@@ -46,8 +46,8 @@ export async function POST(req: Request) {
         const uploadRes = await fetch(uploadUrl, {
             method: "PUT",
             headers: {
-                "Content-Type": file.type,
-                "Content-Length": file.size.toString()
+                "Content-Type": file.type === 'image/jpeg' ? 'image/jpg' : (file.type || 'image/jpg'),
+                "Content-Length": Math.round(file.size).toString()
             },
             body: fileBuffer
         });
