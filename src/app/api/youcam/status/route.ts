@@ -10,16 +10,8 @@ export async function GET(req: Request) {
         }
 
         const apiKey = process.env.YOUCAM_API_KEY;
-        if (!apiKey || task_id === "mock_task_id_98765") {
-            // Mock delay and return mock professional image
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            return NextResponse.json({
-                success: true,
-                task_status: "success",
-                results: {
-                    images: ["https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&auto=format&fit=crop"]
-                }
-            });
+        if (!apiKey) {
+            return NextResponse.json({ error: "No YOUCAM_API_KEY provided" }, { status: 500 });
         }
 
         const statusRes = await fetch(`https://yce-api-01.makeupar.com/s2s/v2.0/task/headshot/${task_id}`, {

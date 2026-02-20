@@ -11,9 +11,7 @@ export async function POST(req: Request) {
 
         const apiKey = process.env.YOUCAM_API_KEY;
         if (!apiKey) {
-            // MOCK MODE
-            console.log("No YOUCAM_API_KEY found, returning mock file_id");
-            return NextResponse.json({ success: true, file_id: "mock_file_id_12345" });
+            return NextResponse.json({ error: "No YOUCAM_API_KEY found" }, { status: 500 });
         }
 
         // 1. Get upload URL
@@ -33,8 +31,9 @@ export async function POST(req: Request) {
         });
 
         if (!getUrlRes.ok) {
-            console.log("YouCam API Failed (Likely invalid key). Falling back to mock.");
-            return NextResponse.json({ success: true, file_id: "mock_file_id_12345" });
+            const errData = await getUrlRes.text();
+            console.error("YouCam API Failed:", errData);
+            return NextResponse.json({ error: "Failed to get upload URL from YouCam" }, { status: 500 });
         }
 
         const getUrlData = await getUrlRes.json();
@@ -54,8 +53,9 @@ export async function POST(req: Request) {
         });
 
         if (!uploadRes.ok) {
-            console.log("YouCam Upload Failed. Falling back to mock.");
-            return NextResponse.json({ success: true, file_id: "mock_file_id_12345" });
+            const uploadErr = await uploadRes.text();
+            console.error("YouCam Upload Failed:", uploadErr);
+            return NextResponse.json({ error: "Failed to upload file bytes to YouCam storage" }, { status: 500 });
         }
 
         return NextResponse.json({ success: true, file_id: fileId });

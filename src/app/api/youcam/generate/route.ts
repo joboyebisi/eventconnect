@@ -9,9 +9,8 @@ export async function POST(req: Request) {
         }
 
         const apiKey = process.env.YOUCAM_API_KEY;
-        if (!apiKey || file_id === "mock_file_id_12345") {
-            console.log("Mocking generate task");
-            return NextResponse.json({ success: true, task_id: "mock_task_id_98765" });
+        if (!apiKey) {
+            return NextResponse.json({ error: "No YOUCAM_API_KEY provided" }, { status: 500 });
         }
 
         // Fetch template ID dynamically 
