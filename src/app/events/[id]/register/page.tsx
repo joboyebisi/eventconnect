@@ -5,6 +5,58 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Sparkles, ArrowRight, RefreshCw, CheckCircle, Upload } from 'lucide-react';
 
+const compressImage = (file: File, maxWidth = 1000, maxHeight = 1000): Promise<File> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target?.result as string;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > maxWidth) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    }
+                } else {
+                    if (height > maxHeight) {
+                        width = Math.round((width * maxHeight) / height);
+                        height = maxHeight;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                const ctx = canvas.getContext('2d');
+                ctx?.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob(
+                    (blob) => {
+                        if (blob) {
+                            const newFile = new File([blob], file.name, {
+                                type: 'image/jpeg',
+                                lastModified: Date.now(),
+                            });
+                            resolve(newFile);
+                        } else {
+                            reject(new Error('Canvas to Blob failed'));
+                        }
+                    },
+                    'image/jpeg',
+                    0.8
+                );
+            };
+            img.onerror = (err) => reject(err);
+        };
+        reader.onerror = (err) => reject(err);
+    });
+};
+
 export default function RegisterPage() {
     const params = useParams();
     const router = useRouter();
@@ -58,11 +110,31 @@ export default function RegisterPage() {
         setStep(3); // Go to loading screen
 
         try {
+            // Compress the file before sending over the network to avoid 413 Payload Too Large on Vercel/Next API limits
+            let fileToUpload = file;
+            try {
+                fileToUpload = await compressImage(file, 1024, 1024);
+                console.log("Compressed file to", Math.round(fileToUpload.size / 1024), "KB");
+            } catch (e) {
+                console.warn("Image compression failed, proceeding with original file", e);
+            }
+
             const fd = new FormData();
-            fd.append("file", file);
+            fd.append("file", fileToUpload);
 
             const uploadRes = await fetch("/api/youcam/upload", { method: "POST", body: fd });
-            const uploadData = await uploadRes.json();
+            const uploadText = await uploadRes.text();
+
+            let uploadData;
+            try {
+                uploadData = JSON.parse(uploadText);
+            } catch (e) {
+                if (uploadRes.status === 413) {
+                    throw new Error("Image file is too large. Please upload a smaller image.");
+                }
+                throw new Error(`Upload failed. Server responded with: ${uploadText.slice(0, 50)}...`);
+            }
+
             if (!uploadRes.ok) throw new Error(uploadData.error || uploadData.details || "Upload failed");
 
             const genRes = await fetch("/api/youcam/generate", {
